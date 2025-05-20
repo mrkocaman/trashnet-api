@@ -1,11 +1,11 @@
-import os
-import requests
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 from PIL import Image
 import io
 import tensorflow as tf
 import numpy as np
+import os
+import requests
 
 app = FastAPI()
 
@@ -17,23 +17,17 @@ def download_file_from_google_drive(id, destination):
     session = requests.Session()
 
     response = session.get(URL, params={'id': id}, stream=True)
-    token = get_confirm_token(response)
+    token = None
+    for key, value in response.cookies.items():
+        if key.startswith('download_warning'):
+            token = value
+            break
 
     if token:
         params = {'id': id, 'confirm': token}
         response = session.get(URL, params=params, stream=True)
 
-    save_response_content(response, destination)
-
-def get_confirm_token(response):
-    for key, value in response.cookies.items():
-        if key.startswith('download_warning'):
-            return value
-    return None
-
-def save_response_content(response, destination):
     CHUNK_SIZE = 32768
-
     with open(destination, "wb") as f:
         for chunk in response.iter_content(CHUNK_SIZE):
             if chunk:
@@ -69,6 +63,6 @@ async def predict(file: UploadFile = File(...)):
     input_data = preprocess_image(image)
 
     predictions = model.predict(input_data)
-    predicted_class = np.argmax(predictions, axis=1)[0]
+    predicted_class = int(np.argmax(predictions, axis=1)[0])
 
-    return JSONResponse(content={"prediction": int(predicted_class)})
+    return JSONResponse(content={"prediction": predicted_class})
