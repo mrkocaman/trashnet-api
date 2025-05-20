@@ -37,18 +37,41 @@ def load_model():
 model = load_model()
 
 def preprocess_image(image: Image.Image):
+    # Debug: gelen görselin bilgisi
+    print(f"Görsel orijinal boyut: {image.size}, mod: {image.mode}")
+
+    # Model için doğru boyut ve normalize etme
     image = image.resize((224, 224))
-    img_array = np.array(image) / 255.0
+    img_array = np.array(image).astype(np.float32) / 255.0
+    print(f"Preprocess sonrası shape: {img_array.shape}, dtype: {img_array.dtype}")
+
+    # Kanal sırası doğru mu kontrol et
+    if img_array.shape[2] != 3:
+        raise ValueError("Görüntü 3 kanallı olmalı (RGB)")
+
     img_array = np.expand_dims(img_array, axis=0)
     return img_array
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    contents = await file.read()
-    image = Image.open(io.BytesIO(contents)).convert("RGB")
-    input_data = preprocess_image(image)
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents)).convert("RGB")
 
-    predictions = model.predict(input_data)
-    predicted_class = int(np.argmax(predictions, axis=1)[0])
+        # Görseli API tarafında kaydedip inceleyebilirsin (debug için)
+        # image.save("debug_uploaded_image.jpg")
 
-    return JSONResponse(content={"prediction": predicted_class})
+        input_data = preprocess_image(image)
+
+        predictions = model.predict(input_data)
+        print(f"Model çıktısı (olasılıklar): {predictions}")
+
+        predicted_class = int(np.argmax(predictions, axis=1)[0])
+
+        return JSONResponse(content={
+            "prediction": predicted_class,
+            "probabilities": predictions[0].tolist()
+        })
+
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=400)
