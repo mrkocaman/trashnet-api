@@ -9,15 +9,41 @@ import os
 
 app = FastAPI()
 
-MODEL_URL = "https://drive.google.com/uc?id=1z5Ddw2pXgd4JEfZiNAeVrRSUudx4Hb9V"
+MODEL_ID = "1z5Ddw2pXgd4JEfZiNAeVrRSUudx4Hb9V"
 MODEL_PATH = "resnet50_trashnet_finetuned.h5"
+
+def download_file_from_google_drive(id, destination):
+    URL = "https://docs.google.com/uc?export=download"
+
+    session = requests.Session()
+
+    response = session.get(URL, params={'id': id}, stream=True)
+    token = get_confirm_token(response)
+
+    if token:
+        params = {'id': id, 'confirm': token}
+        response = session.get(URL, params=params, stream=True)
+
+    save_response_content(response, destination)
+
+def get_confirm_token(response):
+    for key, value in response.cookies.items():
+        if key.startswith('download_warning'):
+            return value
+    return None
+
+def save_response_content(response, destination):
+    CHUNK_SIZE = 32768
+
+    with open(destination, "wb") as f:
+        for chunk in response.iter_content(CHUNK_SIZE):
+            if chunk:
+                f.write(chunk)
 
 def download_model():
     if not os.path.exists(MODEL_PATH):
         print("Model indiriliyor...")
-        r = requests.get(MODEL_URL)
-        with open(MODEL_PATH, "wb") as f:
-            f.write(r.content)
+        download_file_from_google_drive(MODEL_ID, MODEL_PATH)
         print("Model indirildi.")
 
 def load_model():
