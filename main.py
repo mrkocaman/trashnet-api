@@ -6,6 +6,7 @@ import tensorflow as tf
 import numpy as np
 import os
 import requests
+from tensorflow.keras.applications.resnet50 import preprocess_input
 
 app = FastAPI()
 
@@ -37,41 +38,23 @@ def load_model():
 model = load_model()
 
 def preprocess_image(image: Image.Image):
-    # Debug: gelen görselin bilgisi
-    print(f"Görsel orijinal boyut: {image.size}, mod: {image.mode}")
-
-    # Model için doğru boyut ve normalize etme
     image = image.resize((224, 224))
-    img_array = np.array(image).astype(np.float32) / 255.0
-    print(f"Preprocess sonrası shape: {img_array.shape}, dtype: {img_array.dtype}")
-
-    # Kanal sırası doğru mu kontrol et
-    if img_array.shape[2] != 3:
-        raise ValueError("Görüntü 3 kanallı olmalı (RGB)")
-
+    img_array = np.array(image)
     img_array = np.expand_dims(img_array, axis=0)
+    img_array = preprocess_input(img_array)
     return img_array
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    try:
-        contents = await file.read()
-        image = Image.open(io.BytesIO(contents)).convert("RGB")
+    contents = await file.read()
+    image = Image.open(io.BytesIO(contents)).convert("RGB")
 
-        # Görseli API tarafında kaydedip inceleyebilirsin (debug için)
-        # image.save("debug_uploaded_image.jpg")
+    input_data = preprocess_image(image)
 
-        input_data = preprocess_image(image)
+    predictions = model.predict(input_data)
+    predicted_class = int(np.argmax(predictions, axis=1)[0])
 
-        predictions = model.predict(input_data)
-        print(f"Model çıktısı (olasılıklar): {predictions}")
-
-        predicted_class = int(np.argmax(predictions, axis=1)[0])
-
-        return JSONResponse(content={
-            "prediction": predicted_class,
-            "probabilities": predictions[0].tolist()
-        })
-
-    except Exception as e:
-        return JSONResponse(content={"error": str(e)}, status_code=400)
+    return JSONResponse(content={
+        "prediction": predicted_class,
+        "probabilities": predictions[0].tolist()
+    })
