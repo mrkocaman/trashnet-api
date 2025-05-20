@@ -9,34 +9,20 @@ import requests
 
 app = FastAPI()
 
-MODEL_ID = "1z5Ddw2pXgd4JEfZiNAeVrRSUudx4Hb9V"
+DROPBOX_URL = "https://www.dropbox.com/scl/fi/kbet8wqtoazc40fmmz1c6/resnet50_trashnet_finetuned.h5?rlkey=egok5st4mlclaqb9kotvf4gn7&st=sl1zmtib&dl=1"
 MODEL_PATH = "resnet50_trashnet_finetuned.h5"
 
-def download_file_from_google_drive(id, destination):
-    URL = "https://docs.google.com/uc?export=download"
-    session = requests.Session()
-
-    response = session.get(URL, params={'id': id}, stream=True)
-    token = None
-    for key, value in response.cookies.items():
-        if key.startswith('download_warning'):
-            token = value
-            break
-
-    if token:
-        params = {'id': id, 'confirm': token}
-        response = session.get(URL, params=params, stream=True)
-
-    CHUNK_SIZE = 32768
+def download_file_from_dropbox(url, destination):
+    response = requests.get(url, stream=True)
     with open(destination, "wb") as f:
-        for chunk in response.iter_content(CHUNK_SIZE):
+        for chunk in response.iter_content(32768):
             if chunk:
                 f.write(chunk)
 
 def download_model():
     if not os.path.exists(MODEL_PATH):
-        print("Model indiriliyor...")
-        download_file_from_google_drive(MODEL_ID, MODEL_PATH)
+        print("Model Dropbox'tan indiriliyor...")
+        download_file_from_dropbox(DROPBOX_URL, MODEL_PATH)
         size = os.path.getsize(MODEL_PATH)
         print(f"Model indirildi, dosya boyutu: {size} byte")
     else:
