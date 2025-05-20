@@ -1,11 +1,11 @@
+import os
+import requests
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 from PIL import Image
 import io
 import tensorflow as tf
 import numpy as np
-import requests
-import os
 
 app = FastAPI()
 
@@ -14,7 +14,6 @@ MODEL_PATH = "resnet50_trashnet_finetuned.h5"
 
 def download_file_from_google_drive(id, destination):
     URL = "https://docs.google.com/uc?export=download"
-
     session = requests.Session()
 
     response = session.get(URL, params={'id': id}, stream=True)
@@ -44,7 +43,11 @@ def download_model():
     if not os.path.exists(MODEL_PATH):
         print("Model indiriliyor...")
         download_file_from_google_drive(MODEL_ID, MODEL_PATH)
-        print("Model indirildi.")
+        size = os.path.getsize(MODEL_PATH)
+        print(f"Model indirildi, dosya boyutu: {size} byte")
+    else:
+        size = os.path.getsize(MODEL_PATH)
+        print(f"Model zaten mevcut, dosya boyutu: {size} byte")
 
 def load_model():
     download_model()
@@ -54,10 +57,9 @@ def load_model():
 model = load_model()
 
 def preprocess_image(image: Image.Image):
-    # ResNet50 ile uyumlu preprocess örneği
     image = image.resize((224, 224))
-    img_array = np.array(image) / 255.0  # normalize et
-    img_array = np.expand_dims(img_array, axis=0)  # batch boyutu ekle
+    img_array = np.array(image) / 255.0
+    img_array = np.expand_dims(img_array, axis=0)
     return img_array
 
 @app.post("/predict")
